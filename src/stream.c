@@ -1068,8 +1068,8 @@ uvc_error_t uvc_stream_start(
   uvc_format_desc_t *format_desc;
   uvc_stream_ctrl_t *ctrl;
   uvc_error_t ret;
-  /* Total amount of data per transfer */
-  size_t total_transfer_size = 0;
+  /* Total amount of data per transfer, initialized to MAX */
+  size_t total_transfer_size = -1;
   struct libusb_transfer *transfer;
   int transfer_id;
 
@@ -1123,19 +1123,20 @@ uvc_error_t uvc_stream_start(
     size_t endpoint_bytes_per_packet = 0;
     /* Index of the altsetting */
     int alt_idx, ep_idx;
+    /* temporary total transfer sizes */
+    size_t temp_tts;
     
     config_bytes_per_packet = strmh->cur_ctrl.dwMaxPayloadTransferSize;
 
     /* Go through the altsettings and find one whose packets are at least
-     * as big as our format's maximum per-packet usage. Assume that the
-     * packet sizes are increasing. */
+     * as big as our format's maximum per-packet usage. */
     for (alt_idx = 0; alt_idx < interface->num_altsetting; alt_idx++) {
-      altsetting = interface->altsetting + alt_idx;
+      const struct libusb_interface_descriptor *current_altsetting = interface->altsetting + alt_idx;
       endpoint_bytes_per_packet = 0;
 
       /* Find the endpoint with the number specified in the VS header */
-      for (ep_idx = 0; ep_idx < altsetting->bNumEndpoints; ep_idx++) {
-        endpoint = altsetting->endpoint + ep_idx;
+      for (ep_idx = 0; ep_idx < current_altsetting->bNumEndpoints; ep_idx++) {
+        endpoint = current_altsetting->endpoint + ep_idx;
 
         struct libusb_ss_endpoint_companion_descriptor *ep_comp = 0;
         libusb_get_ss_endpoint_companion_descriptor(NULL, endpoint, &ep_comp);
@@ -1167,13 +1168,18 @@ uvc_error_t uvc_stream_start(
         if (packets_per_transfer > 32)
           packets_per_transfer = 32;
         
-        total_transfer_size = packets_per_transfer * endpoint_bytes_per_packet;
-        break;
+        temp_tts = packets_per_transfer * endpoint_bytes_per_packet;
+        UVC_DEBUG("alt_idx: %d, ep_idx: %d, temp_tts: %zd, ppt: %zd, ebpp: %zd", alt_idx, ep_idx, temp_tts,packets_per_transfer,endpoint_bytes_per_packet);
+        /* pick best altsetting */
+        if(temp_tts < total_transfer_size) {
+          total_transfer_size = temp_tts;
+          altsetting = current_altsetting;
+        }
       }
     }
 
     /* If we searched through all the altsettings and found nothing usable */
-    if (alt_idx == interface->num_altsetting) {
+    if (!altsetting) {
       ret = UVC_ERROR_INVALID_MODE;
       goto fail;
     }
@@ -1222,14 +1228,16 @@ uvc_error_t uvc_stream_start(
    * with the contents of each frame.
    */
   if (cb) {
-    pthread_create(&strmh->cb_thread, NULL, _uvc_user_caller, (void*) strmh);
+    UVC_DEBUG("uvc_user_caller_thread_create");
+    int status = pthread_create(&strmh->cb_thread, NULL, _uvc_user_caller, (void*) strmh);
+    UVC_DEBUG("uvc_user_caller_thread_created: %s (%d)", strerror(status), status);
   }
 
   for (transfer_id = 0; transfer_id < LIBUVC_NUM_TRANSFER_BUFS;
       transfer_id++) {
     ret = libusb_submit_transfer(strmh->transfers[transfer_id]);
     if (ret != UVC_SUCCESS) {
-      UVC_DEBUG("libusb_submit_transfer failed: %d",ret);
+      UVC_DEBUG("libusb_submit_transfer failed: %d (%i:%p)",ret, transfer_id, strmh->transfers[transfer_id]);
       break;
     }
   }

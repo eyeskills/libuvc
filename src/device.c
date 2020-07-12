@@ -273,19 +273,26 @@ uint8_t uvc_get_device_address(uvc_device_t *dev) {
 uvc_error_t uvc_open(
     uvc_device_t *dev,
     uvc_device_handle_t **devh) {
+  return uvc_open_with_usb_devh(dev,devh,NULL);
+}
+uvc_error_t uvc_open_with_usb_devh(
+    uvc_device_t *dev,
+    uvc_device_handle_t **devh,
+    struct libusb_device_handle *usb_devh) {
   uvc_error_t ret;
-  struct libusb_device_handle *usb_devh;
   uvc_device_handle_t *internal_devh;
   struct libusb_device_descriptor desc;
 
   UVC_ENTER();
 
-  ret = libusb_open(dev->usb_dev, &usb_devh);
-  UVC_DEBUG("libusb_open() = %d", ret);
+  if(usb_devh == NULL) {
+    ret = libusb_open(dev->usb_dev, &usb_devh);
+    UVC_DEBUG("libusb_open() = %d", ret);
 
-  if (ret != UVC_SUCCESS) {
-    UVC_EXIT(ret);
-    return ret;
+    if (ret != UVC_SUCCESS) {
+      UVC_EXIT(ret);
+      return ret;
+    }
   }
 
   uvc_ref_device(dev);

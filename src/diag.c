@@ -39,6 +39,8 @@
 #include "libuvc/libuvc.h"
 #include "libuvc/libuvc_internal.h"
 
+#define fprintf(unused,format,...) UVC_DEBUG(format,##__VA_ARGS__)
+
 /** @internal */
 typedef struct _uvc_error_msg {
   uvc_error_t err;

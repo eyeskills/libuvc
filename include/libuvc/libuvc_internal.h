@@ -48,17 +48,27 @@
     (out) = dl_nth_p; \
   } while (0);
 
-#ifdef UVC_DEBUGGING
-#include <libgen.h>
-#define UVC_DEBUG(format, ...) fprintf(stderr, "[%s:%d/%s] " format "\n", basename(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define UVC_ENTER() fprintf(stderr, "[%s:%d] begin %s\n", basename(__FILE__), __LINE__, __FUNCTION__)
-#define UVC_EXIT(code) fprintf(stderr, "[%s:%d] end %s (%d)\n", basename(__FILE__), __LINE__, __FUNCTION__, code)
-#define UVC_EXIT_VOID() fprintf(stderr, "[%s:%d] end %s\n", basename(__FILE__), __LINE__, __FUNCTION__)
+#define UVC_DEBUGGING
+#if defined(UVC_DEBUGGING) && defined(__ANDROID__)
+  #include <android/log.h>
+  #define LIBUVC_STRINGIFY(x) LIBUVC_STRINGIFY_PRIVATE(x)
+  #define LIBUVC_STRINGIFY_PRIVATE(x) #x
+  #define LIBUVC_LOG_TAG    __FILE__ ":" LIBUVC_STRINGIFY(__LINE__)
+  #define UVC_DEBUG(format, ...) __android_log_print(ANDROID_LOG_DEBUG,LIBUVC_LOG_TAG,format,##__VA_ARGS__)
+  #define UVC_ENTER() UVC_DEBUG("begin %s",__FUNCTION__)
+  #define UVC_EXIT_VOID() UVC_DEBUG("end %s",__FUNCTION__)
+  #define UVC_EXIT(code) UVC_DEBUG("end %s with %i", __FUNCTION__, code)
+#elif defined(UVC_DEBUGGING)
+  #include <libgen.h>
+  #define UVC_DEBUG(format, ...) fprintf(stderr, "[%s:%d/%s] " format "\n", basename(__FILE__), __LINE__, __FUNCTION__, ##__VA_ARGS__)
+  #define UVC_ENTER() fprintf(stderr, "[%s:%d] begin %s\n", basename(__FILE__), __LINE__, __FUNCTION__)
+  #define UVC_EXIT(code) fprintf(stderr, "[%s:%d] end %s (%d)\n", basename(__FILE__), __LINE__, __FUNCTION__, code)
+  #define UVC_EXIT_VOID() fprintf(stderr, "[%s:%d] end %s\n", basename(__FILE__), __LINE__, __FUNCTION__)
 #else
-#define UVC_DEBUG(format, ...)
-#define UVC_ENTER()
-#define UVC_EXIT_VOID()
-#define UVC_EXIT(code)
+  #define UVC_DEBUG(format, ...)
+  #define UVC_ENTER()
+  #define UVC_EXIT_VOID()
+  #define UVC_EXIT(code)
 #endif
 
 /* http://stackoverflow.com/questions/19452971/array-size-macro-that-rejects-pointers */
