@@ -554,6 +554,10 @@ uvc_error_t uvc_find_devices(
     uvc_device_t ***devs,
     int vid, int pid, const char *sn);
 
+uvc_error_t uvc_open_with_usb_devh(
+    uvc_device_t *dev,
+    uvc_device_handle_t **devh,
+    struct libusb_device_handle *usbdevh);
 uvc_error_t uvc_open(
     uvc_device_t *dev,
     uvc_device_handle_t **devh);
